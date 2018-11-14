@@ -37,10 +37,12 @@ func Dial(network, addr string) (net.Conn, error) {
 			for {
 				t := time.Now()
 				conn, err := net.Dial(network, addr)
-				if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
-					if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
-						slots[protAndAddr] <- connOrError{nil, err, t}
-						continue
+				if conn != nil {
+					if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
+						if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
+							slots[protAndAddr] <- connOrError{nil, err, t}
+							continue
+						}
 					}
 				}
 				log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
@@ -54,6 +56,9 @@ func Dial(network, addr string) (net.Conn, error) {
 		if coe.IsDead() {
 			log.Printf("Ignoring connection, timed out at age %s", time.Now().Sub(coe.time))
 			continue
+		}
+		if coe.err != nil {
+			log.Printf("Dial %s, %s: %s", network, addr, coe.err)
 		}
 		return coe.conn, coe.err
 	}
