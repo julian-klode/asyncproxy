@@ -1,5 +1,6 @@
 package main
 
+import "flag"
 import "fmt"
 import "net"
 import "log"
@@ -18,10 +19,18 @@ func (coe connOrError) IsDead() bool {
 var timeOut = 5 * time.Second
 var slots = make(map[string]chan connOrError)
 
+var forceIPv4 = flag.Bool("4", false, "a bool")
+
 // Dial dials a connection asynchronously, opening a new connection
 // in the background once a connection has been taken. The connections
 // use http.KeepAlive.
 func Dial(network, addr string) (net.Conn, error) {
+	if *forceIPv4 && (network == "tcp" || network == "tcp6") {
+		network = "tcp4"
+	}
+	if *forceIPv4 && (network == "udp" || network == "udp") {
+		network = "udp"
+	}
 	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
 	if slots[protAndAddr] == nil {
 		slots[protAndAddr] = make(chan connOrError)
