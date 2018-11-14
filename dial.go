@@ -4,6 +4,7 @@ import "flag"
 import "fmt"
 import "net"
 import "log"
+import "sync"
 import "time"
 
 type connOrError struct {
@@ -13,6 +14,7 @@ type connOrError struct {
 }
 
 var slots = make(map[string]chan connOrError)
+var mutex = &sync.Mutex{}
 var timeOutSec = flag.Int("timeout", 0, "timeout, in seconds")
 var forceIPv4 = flag.Bool("4", false, "specify to force IPv4 connections to server")
 
@@ -31,6 +33,7 @@ func Dial(network, addr string) (net.Conn, error) {
 		network = "udp"
 	}
 	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
+	mutex.Lock()
 	if slots[protAndAddr] == nil {
 		slots[protAndAddr] = make(chan connOrError)
 		go func() {
@@ -50,6 +53,7 @@ func Dial(network, addr string) (net.Conn, error) {
 			}
 		}()
 	}
+	mutex.Unlock()
 
 	for {
 		coe := <-slots[protAndAddr]
