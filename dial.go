@@ -16,9 +16,8 @@ var slots = make(map[string]chan connOrError)
 var timeOutSec = flag.Int("timeout", 0, "timeout, in seconds")
 var forceIPv4 = flag.Bool("4", false, "specify to force IPv4 connections to server")
 
-
 func (coe connOrError) IsDead() bool {
-	return *timeOutSec > 0 && time.Now().Sub(coe.time) >= time.Duration(*timeOutSec) * time.Second
+	return *timeOutSec > 0 && time.Now().Sub(coe.time) >= time.Duration(*timeOutSec)*time.Second
 }
 
 // Dial dials a connection asynchronously, opening a new connection
