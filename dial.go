@@ -1,5 +1,6 @@
 package main
 
+import "fmt"
 import "net"
 import "log"
 import "time"
@@ -15,28 +16,29 @@ var slots = make(map[string]chan connOrError)
 // in the background once a connection has been taken. The connections
 // use http.KeepAlive.
 func Dial(network, addr string) (net.Conn, error) {
-	if slots[addr] == nil {
-		slots[addr] = make(chan connOrError)
+	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
+	if slots[protAndAddr] == nil {
+		slots[protAndAddr] = make(chan connOrError)
 		go func() {
 			for {
 				t := time.Now()
 				conn, err := net.Dial(network, addr)
 				if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
 					if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
-						slots[addr] <- connOrError{nil, err}
+						slots[protAndAddr] <- connOrError{nil, err}
 					}
 				}
 				elapsed := time.Now().Sub(t)
 				log.Printf("Finished %s dial to %s in %s", network, addr, elapsed)
 				if err != nil {
-					slots[addr] <- connOrError{nil, err}
+					slots[protAndAddr] <- connOrError{nil, err}
 				} else {
-					slots[addr] <- connOrError{conn, nil}
+					slots[protAndAddr] <- connOrError{conn, nil}
 				}
 			}
 		}()
 	}
 
-	coe := <-slots[addr]
+	coe := <-slots[protAndAddr]
 	return coe.conn, coe.err
 }
