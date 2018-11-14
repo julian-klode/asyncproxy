@@ -7,9 +7,15 @@ import "time"
 
 type connOrError struct {
 	conn net.Conn
-	err error
+	err  error
+	time time.Time
 }
 
+func (coe connOrError) IsDead() bool {
+	return time.Now().Sub(coe.time) >= timeOut
+}
+
+var timeOut = 5 * time.Second
 var slots = make(map[string]chan connOrError)
 
 // Dial dials a connection asynchronously, opening a new connection
@@ -25,20 +31,21 @@ func Dial(network, addr string) (net.Conn, error) {
 				conn, err := net.Dial(network, addr)
 				if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
 					if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
-						slots[protAndAddr] <- connOrError{nil, err}
+						slots[protAndAddr] <- connOrError{nil, err, t}
 					}
 				}
-				elapsed := time.Now().Sub(t)
-				log.Printf("Finished %s dial to %s in %s", network, addr, elapsed)
-				if err != nil {
-					slots[protAndAddr] <- connOrError{nil, err}
-				} else {
-					slots[protAndAddr] <- connOrError{conn, nil}
-				}
+				log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
+				slots[protAndAddr] <- connOrError{conn, err, t}
 			}
 		}()
 	}
 
-	coe := <-slots[protAndAddr]
-	return coe.conn, coe.err
+	for {
+		coe := <-slots[protAndAddr]
+		if coe.IsDead() {
+			log.Printf("Ignoring connection, timed out at age %s", time.Now().Sub(coe.time))
+			continue
+		}
+		return coe.conn, coe.err
+	}
 }
