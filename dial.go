@@ -59,6 +59,9 @@ func Dial(network, addr string) (net.Conn, error) {
 		coe := <-slots[protAndAddr]
 		if coe.IsDead() {
 			log.Printf("Ignoring connection, timed out at age %s", time.Now().Sub(coe.time))
+			if coe.conn != nil {
+				coe.conn.Close()
+			}
 			continue
 		}
 		if coe.err != nil {
