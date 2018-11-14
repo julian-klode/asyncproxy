@@ -40,6 +40,7 @@ func Dial(network, addr string) (net.Conn, error) {
 				if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
 					if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
 						slots[protAndAddr] <- connOrError{nil, err, t}
+						continue
 					}
 				}
 				log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
