@@ -30,7 +30,7 @@ func Dial(network, addr string) (net.Conn, error) {
 		network = "tcp4"
 	}
 	if *forceIPv4 && (network == "udp" || network == "udp") {
-		network = "udp"
+		network = "udp4"
 	}
 	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
 	mutex.Lock()
