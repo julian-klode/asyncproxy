@@ -1,53 +1,54 @@
-package bridgeproxy
+package main
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"time"
 )
+
+// copyAndClose copies bytes from src to dst and closes both afterwards
+func copyAndClose(dst io.WriteCloser, src io.ReadCloser) {
+	if _, err := io.Copy(dst, src); err != nil {
+		log.Println("Could not forward:", err)
+	}
+	src.Close()
+	dst.Close()
+}
 
 // httpProxyHandler implements a http.Handler for proxying requests
 type httpProxyHandler struct {
 	client http.Client
-	peers  []Peer
 }
 
 // serveHTTPConnect serves proxy requests for the CONNECT method. It does not
 // print errors, but rather returns them for your proxy handler to handle.
 func (proxy *httpProxyHandler) serveHTTPConnect(w http.ResponseWriter, r *http.Request) error {
-	log.Println("Dialing for CONNECT to", r.URL)
-	remote, err := DialProxy(proxy.peers)
+	t := time.Now()
+	//log.Println("Dialing for CONNECT to", r.URL.Host)
+	remote, err := Dial("tcp", r.URL.Host)
+	//log.Println("Got remote", remote, "err", err)
 	if err != nil {
+		w.WriteHeader(503)
 		return err
 	}
-
-	if err = r.WriteProxy(remote); err != nil {
-		return err
-	}
+	w.WriteHeader(200)
 
 	conn, _, err := w.(http.Hijacker).Hijack()
+	log.Println("Hijacked conn", conn, "err", err, "in", time.Now().Sub(t))
 	if err != nil {
 		return err
 	}
 
-	go copyAndClose(conn, remote)
-	copyAndClose(remote, conn)
+	go copyAndClose(remote, conn)
+	copyAndClose(conn, remote)
+
 	return nil
 }
 
 // ServeHTTP serves proxy requests
 func (proxy *httpProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// authenticate
-	for k, vs := range proxy.peers[len(proxy.peers)-1].ConnectExtra {
-		for _, v := range vs {
-			r.Header.Add(k, v)
-		}
-	}
 	// net/http.Client does not handle the CONNECT stuff that well below, so
 	// let us go a more direct route here - this could be used for the other
 	// methods as well, but that would prevent reusing connections to the
@@ -91,36 +92,17 @@ func (proxy *httpProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 // that proxies HTTP requests via the configured proxies. It supports
 // not only HTTP proxy requests, but also normal HTTP/1.1 requests with a
 // Host header - thus enabling the use as a transparent proxy.
-func HTTPProxyHandler(peers []Peer) http.Handler {
-	var buffer bytes.Buffer
-	for _, peer := range peers {
-		fmt.Fprintf(&buffer, " → %s:%d", peer.HostName, peer.Port)
-	}
-	log.Printf("Forwarding HTTP: this%s\n", buffer.String())
+func HTTPProxyHandler() http.Handler {
 
-	host := fmt.Sprintf("%s:%d", peers[len(peers)-1].HostName, peers[len(peers)-1].Port)
+	log.Printf("Forwarding HTTP")
+
 	transport := http.Transport{
 		MaxIdleConns:        64,
 		MaxIdleConnsPerHost: 64,
 		IdleConnTimeout:     5 * time.Minute,
 
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			return &url.URL{Scheme: "http",
-				Host: host}, nil
-		},
 		Dial: func(network, addr string) (net.Conn, error) {
-			if addr != host {
-				return nil, fmt.Errorf("Target is not the proxy host: %s is not %s", addr, host)
-			}
-			log.Println("Dial called for", addr)
-			c, err := DialProxy(peers)
-			if err != nil {
-				if c != nil {
-					c.Close()
-				}
-				return nil, err
-			}
-			return c, nil
+			return Dial(network, addr)
 		},
 	}
 	client := http.Client{
@@ -130,5 +112,5 @@ func HTTPProxyHandler(peers []Peer) http.Handler {
 		},
 	}
 
-	return &httpProxyHandler{client, peers}
+	return &httpProxyHandler{client}
 }
