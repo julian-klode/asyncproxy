@@ -1,40 +1,8 @@
-# bridgeproxy - Decrypting bridge to remote HTTPS proxy
+# asyncproxy - Improve initial connection speed
 
-Represent a remote HTTPS proxy as a local HTTP proxy, while connecting to
-the remote HTTPS proxy via recursive bridge HTTP proxies.
+asyncproxy is a http proxy that keeps connections in the background
+for CONNECT requests done previously, so if a new CONNECT request
+comes in for the same host, it can just use the established connection
+and establish a new one for later use in the background.
 
-[![GoDoc](https://godoc.org/github.com/julian-klode/bridgeproxy?status.svg)](https://godoc.org/github.com/julian-klode/bridgeproxy) [![Go Report Card](https://goreportcard.com/badge/github.com/julian-klode/bridgeproxy)](https://goreportcard.com/report/github.com/julian-klode/bridgeproxy)
-
-## Documentation
-See http://godoc.org/github.com/julian-klode/bridgeproxy for documentation.
-
-## Example use
-
-For example, the following connects to second-proxy by first connecting
-to first-proxy. The second proxy is tls encrypted.
-
-```go
-package main
-
-import (
-	"crypto/tls"
-	"github.com/julian-klode/bridgeproxy"
-)
-
-func main() {
-
-	bridgeproxy.Serve(
-		"localhost:9091",
-		[]bridgeproxy.Peer{
-			{
-				HostName: "first-proxy.example.com",
-				Port:     3128,
-			},
-			{
-				TLSConfig:    &tls.Config{InsecureSkipVerify: true},
-				HostName:     "second-proxy.example.com",
-				Port:         443,
-			},
-		})
-}
-```
+This reduces the RTT for CONNECT requests on slow connections.
