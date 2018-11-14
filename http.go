@@ -3,7 +3,6 @@ package main
 import (
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"time"
 )
@@ -100,10 +99,7 @@ func HTTPProxyHandler() http.Handler {
 		MaxIdleConns:        64,
 		MaxIdleConnsPerHost: 64,
 		IdleConnTimeout:     5 * time.Minute,
-
-		Dial: func(network, addr string) (net.Conn, error) {
-			return Dial(network, addr)
-		},
+		Dial:                Dial,
 	}
 	client := http.Client{
 		Transport: &transport,
