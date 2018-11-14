@@ -12,14 +12,14 @@ type connOrError struct {
 	time time.Time
 }
 
-func (coe connOrError) IsDead() bool {
-	return time.Now().Sub(coe.time) >= timeOut
-}
-
-var timeOut = 5 * time.Second
 var slots = make(map[string]chan connOrError)
-
+var timeOutSec = flag.Int("timeout", 0, "timeout, in seconds")
 var forceIPv4 = flag.Bool("4", false, "a bool")
+
+
+func (coe connOrError) IsDead() bool {
+	return *timeOutSec > 0 && time.Now().Sub(coe.time) >= time.Duration(*timeOutSec) * time.Second
+}
 
 // Dial dials a connection asynchronously, opening a new connection
 // in the background once a connection has been taken. The connections
