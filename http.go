@@ -19,6 +19,7 @@ func copyAndClose(dst io.WriteCloser, src io.ReadCloser) {
 // httpProxyHandler implements a http.Handler for proxying requests
 type httpProxyHandler struct {
 	client http.Client
+	dialer *AsyncDialer
 }
 
 // serveHTTPConnect serves proxy requests for the CONNECT method. It does not
@@ -26,7 +27,7 @@ type httpProxyHandler struct {
 func (proxy *httpProxyHandler) serveHTTPConnect(w http.ResponseWriter, r *http.Request) error {
 	t := time.Now()
 	//log.Println("Dialing for CONNECT to", r.URL.Host)
-	remote, err := Dial("tcp", r.URL.Host)
+	remote, err := proxy.dialer.Dial("tcp", r.URL.Host)
 	//log.Println("Got remote", remote, "err", err)
 	if err != nil {
 		w.WriteHeader(503)
@@ -95,11 +96,13 @@ func HTTPProxyHandler() http.Handler {
 
 	log.Printf("Forwarding HTTP")
 
+	dialer := NewAsyncDialer()
+
 	transport := http.Transport{
 		MaxIdleConns:        64,
 		MaxIdleConnsPerHost: 64,
 		IdleConnTimeout:     5 * time.Minute,
-		Dial:                Dial,
+		Dial:                dialer.Dial,
 	}
 	client := http.Client{
 		Transport: &transport,
@@ -108,5 +111,5 @@ func HTTPProxyHandler() http.Handler {
 		},
 	}
 
-	return &httpProxyHandler{client}
+	return &httpProxyHandler{client, dialer}
 }
