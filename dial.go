@@ -29,7 +29,7 @@ func Dial(network, addr string) (net.Conn, error) {
 	if *forceIPv4 && (network == "tcp" || network == "tcp6") {
 		network = "tcp4"
 	}
-	if *forceIPv4 && (network == "udp" || network == "udp") {
+	if *forceIPv4 && (network == "udp" || network == "udp6") {
 		network = "udp4"
 	}
 	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
