@@ -1,11 +1,13 @@
 package main
 
-import "flag"
-import "fmt"
-import "net"
-import "log"
-import "sync"
-import "time"
+import (
+	"flag"
+	"fmt"
+	"log"
+	"net"
+	"sync"
+	"time"
+)
 
 type connOrError struct {
 	conn net.Conn
@@ -34,16 +36,7 @@ func NewAsyncDialer() *AsyncDialer {
 	}
 }
 
-// Dial dials a connection asynchronously, opening a new connection
-// in the background once a connection has been taken. The connections
-// use http.KeepAlive.
-func (dialer *AsyncDialer) Dial(network, addr string) (net.Conn, error) {
-	if *forceIPv4 && (network == "tcp" || network == "tcp6") {
-		network = "tcp4"
-	}
-	if *forceIPv4 && (network == "udp" || network == "udp6") {
-		network = "udp4"
-	}
+func (dialer *AsyncDialer) getChannel(network, addr string) chan connOrError {
 	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
 	dialer.mutex.Lock()
 	if dialer.slots[protAndAddr] == nil {
@@ -66,9 +59,24 @@ func (dialer *AsyncDialer) Dial(network, addr string) (net.Conn, error) {
 		}()
 	}
 	dialer.mutex.Unlock()
+	return dialer.slots[protAndAddr]
+}
+
+// Dial dials a connection asynchronously, opening a new connection
+// in the background once a connection has been taken. The connections
+// use http.KeepAlive.
+func (dialer *AsyncDialer) Dial(network, addr string) (net.Conn, error) {
+	if *forceIPv4 && (network == "tcp" || network == "tcp6") {
+		network = "tcp4"
+	}
+	if *forceIPv4 && (network == "udp" || network == "udp6") {
+		network = "udp4"
+	}
+
+	channel := dialer.getChannel(network, addr)
 
 	for {
-		coe := <-dialer.slots[protAndAddr]
+		coe := <-channel
 		if coe.IsDead() {
 			log.Printf("Ignoring connection, timed out at age %s", time.Now().Sub(coe.time))
 			if coe.conn != nil {
