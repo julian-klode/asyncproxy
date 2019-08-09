@@ -17,7 +17,7 @@ type connOrError struct {
 // Use NewAsyncDialer() to create a new dialer.
 type AsyncDialer struct {
 	slots map[string]chan connOrError
-	mutex *sync.Mutex
+	mutex sync.Mutex
 }
 
 var timeOutSec = flag.Int("timeout", 0, "timeout, in seconds")
@@ -31,7 +31,6 @@ func (coe connOrError) IsDead() bool {
 func NewAsyncDialer() *AsyncDialer {
 	return &AsyncDialer{
 		slots: make(map[string]chan connOrError),
-		mutex: &sync.Mutex{},
 	}
 }
 
