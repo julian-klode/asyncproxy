@@ -16,7 +16,6 @@ type connOrError struct {
 }
 
 // AsyncDialer provides a Dial() method that pre-dials asynchronously.
-// Use NewAsyncDialer() to create a new dialer.
 type AsyncDialer struct {
 	slots map[string]chan connOrError
 	mutex sync.Mutex
