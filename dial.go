@@ -74,10 +74,7 @@ func (dialer *AsyncDialer) Dial(network, addr string) (net.Conn, error) {
 		network = "udp4"
 	}
 
-	channel := dialer.getChannel(network, addr)
-
-	for {
-		coe := <-channel
+	for coe := range dialer.getChannel(network, addr) {
 		if coe.IsDead() {
 			log.Printf("Ignoring connection, timed out at age %s", time.Now().Sub(coe.time))
 			if coe.conn != nil {
@@ -90,4 +87,6 @@ func (dialer *AsyncDialer) Dial(network, addr string) (net.Conn, error) {
 		}
 		return coe.conn, coe.err
 	}
+
+	panic(fmt.Sprintf("Somebody closed the channel for %s:%s", network, addr))
 }
