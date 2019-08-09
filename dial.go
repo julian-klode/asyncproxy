@@ -29,16 +29,12 @@ func (coe connOrError) IsDead() bool {
 	return *timeOutSec > 0 && time.Now().Sub(coe.time) >= time.Duration(*timeOutSec)*time.Second
 }
 
-// NewAssyncDialer creates a new AsyncDialer
-func NewAsyncDialer() *AsyncDialer {
-	return &AsyncDialer{
-		slots: make(map[string]chan connOrError),
-	}
-}
-
 func (dialer *AsyncDialer) getChannel(network, addr string) chan connOrError {
 	protAndAddr := fmt.Sprintf("%s,%s", network, addr)
 	dialer.mutex.Lock()
+	if dialer.slots == nil {
+		dialer.slots = make(map[string]chan connOrError)
+	}
 	if dialer.slots[protAndAddr] == nil {
 		dialer.slots[protAndAddr] = make(chan connOrError)
 		go func() {

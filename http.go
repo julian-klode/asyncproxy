@@ -96,7 +96,7 @@ func HTTPProxyHandler() http.Handler {
 
 	log.Printf("Forwarding HTTP")
 
-	dialer := NewAsyncDialer()
+	dialer := &AsyncDialer{}
 
 	transport := http.Transport{
 		MaxIdleConns:        64,
