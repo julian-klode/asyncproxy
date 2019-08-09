@@ -7,4 +7,4 @@ for CONNECT requests done previously, so if a new CONNECT request
 comes in for the same host, it can just use the established connection
 and establish a new one for later use in the background.
 
-This reduces the RTT for CONNECT requests on slow connections.
+This reduces the RTT for CONNECT requests on high-latency connections.
