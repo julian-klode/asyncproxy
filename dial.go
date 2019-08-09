@@ -36,25 +36,28 @@ func (dialer *AsyncDialer) getChannel(network, addr string) chan connOrError {
 	}
 	if dialer.slots[protAndAddr] == nil {
 		dialer.slots[protAndAddr] = make(chan connOrError)
-		go func() {
-			for {
-				t := time.Now()
-				conn, err := net.Dial(network, addr)
-				if conn != nil {
-					if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
-						if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
-							dialer.slots[protAndAddr] <- connOrError{nil, err, t}
-							continue
-						}
-					}
-				}
-				log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
-				dialer.slots[protAndAddr] <- connOrError{conn, err, t}
-			}
-		}()
+		go dialer.backgroundDialLoop(dialer.slots[protAndAddr], addr, network)
 	}
 	dialer.mutex.Unlock()
 	return dialer.slots[protAndAddr]
+}
+
+// backgroundDialLoop dials in the background and adds the new connection (or error) to the specified channel.
+func (dialer *AsyncDialer) backgroundDialLoop(channel chan connOrError, addr string, network string) {
+	for {
+		t := time.Now()
+		conn, err := net.Dial(network, addr)
+		if conn != nil {
+			if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
+				if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
+					channel <- connOrError{nil, err, t}
+					continue
+				}
+			}
+		}
+		log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
+		channel <- connOrError{conn, err, t}
+	}
 }
 
 // Dial dials a connection asynchronously, opening a new connection
