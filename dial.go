@@ -52,11 +52,10 @@ func (dialer *AsyncDialer) backgroundDialLoop(channel chan connOrError, addr str
 		if conn != nil {
 			if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
 				if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
-					log.Printf("Dial %s, %s: Could not keep-alive: %s", network, addr, err)
+					channel <- connOrError{nil, err, t}
 					continue
 				}
 			}
-			channel <- connOrError{nil, err, t}
 		}
 		log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
 		channel <- connOrError{conn, err, t}
