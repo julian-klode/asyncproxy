@@ -52,6 +52,7 @@ func (dialer *AsyncDialer) backgroundDialLoop(channel chan connOrError, addr str
 		if conn != nil {
 			if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
 				if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
+					conn.Close()
 					channel <- connOrError{nil, err, t}
 					continue
 				}
