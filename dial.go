@@ -29,7 +29,7 @@ func (coe connOrError) IsDead() bool {
 	return *timeOutSec > 0 && time.Now().Sub(coe.time) >= time.Duration(*timeOutSec)*time.Second
 }
 
-// NewAsyncDialer creates a new AsyncDialer
+// NewAssyncDialer creates a new AsyncDialer
 func NewAsyncDialer() *AsyncDialer {
 	return &AsyncDialer{
 		slots: make(map[string]chan connOrError),
