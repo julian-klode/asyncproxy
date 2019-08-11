@@ -20,8 +20,9 @@ type AsyncDialer struct {
 	TimeOutSec int
 	// ForceIPv4 allows overriding the Dial request to enforce IPv4
 	ForceIPv4 bool
-	slots     map[string]chan connOrError
-	mutex     sync.Mutex
+
+	slots map[string]chan connOrError
+	mutex sync.Mutex
 }
 
 func (coe connOrError) IsDead() bool {
