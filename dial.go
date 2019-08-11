@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -10,22 +9,23 @@ import (
 )
 
 type connOrError struct {
-	conn net.Conn
-	err  error
-	time time.Time
+	conn    net.Conn
+	err     error
+	timeout time.Time
 }
 
 // AsyncDialer provides a Dial() method that pre-dials asynchronously.
 type AsyncDialer struct {
-	slots map[string]chan connOrError
-	mutex sync.Mutex
+	// TimeOutSec specifies a timeout for TCP operations
+	TimeOutSec int
+	// ForceIPv4 allows overriding the Dial request to enforce IPv4
+	ForceIPv4 bool
+	slots     map[string]chan connOrError
+	mutex     sync.Mutex
 }
 
-var timeOutSec = flag.Int("timeout", 0, "timeout, in seconds")
-var forceIPv4 = flag.Bool("4", false, "specify to force IPv4 connections to server")
-
 func (coe connOrError) IsDead() bool {
-	return *timeOutSec > 0 && time.Now().Sub(coe.time) >= time.Duration(*timeOutSec)*time.Second
+	return coe.timeout.Sub(time.Now()) < 0
 }
 
 func (dialer *AsyncDialer) getChannel(network, addr string) chan connOrError {
@@ -48,18 +48,19 @@ func (dialer *AsyncDialer) getChannel(network, addr string) chan connOrError {
 func (dialer *AsyncDialer) backgroundDialLoop(channel chan connOrError, addr string, network string) {
 	for {
 		t := time.Now()
+		timeout := t.Add(time.Duration(dialer.TimeOutSec) * time.Second)
 		conn, err := net.Dial(network, addr)
 		if conn != nil {
 			if tcpConn := conn.(*net.TCPConn); tcpConn != nil {
 				if err := conn.(*net.TCPConn).SetKeepAlive(true); err != nil {
 					conn.Close()
-					channel <- connOrError{nil, err, t}
+					channel <- connOrError{nil, err, timeout}
 					continue
 				}
 			}
 		}
 		log.Printf("Finished %s dial to %s in %s", network, addr, time.Now().Sub(t))
-		channel <- connOrError{conn, err, t}
+		channel <- connOrError{conn, err, timeout}
 	}
 }
 
@@ -67,16 +68,16 @@ func (dialer *AsyncDialer) backgroundDialLoop(channel chan connOrError, addr str
 // in the background once a connection has been taken. The connections
 // use http.KeepAlive.
 func (dialer *AsyncDialer) Dial(network, addr string) (net.Conn, error) {
-	if *forceIPv4 && (network == "tcp" || network == "tcp6") {
+	if dialer.ForceIPv4 && (network == "tcp" || network == "tcp6") {
 		network = "tcp4"
 	}
-	if *forceIPv4 && (network == "udp" || network == "udp6") {
+	if dialer.ForceIPv4 && (network == "udp" || network == "udp6") {
 		network = "udp4"
 	}
 
 	for connOrErr := range dialer.getChannel(network, addr) {
 		if connOrErr.IsDead() {
-			log.Printf("Ignoring connection, timed out at age %s", time.Now().Sub(connOrErr.time))
+			log.Printf("Ignoring connection, timed out")
 			if connOrErr.conn != nil {
 				connOrErr.conn.Close()
 			}

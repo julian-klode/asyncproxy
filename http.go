@@ -92,11 +92,9 @@ func (proxy *httpProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 // that proxies HTTP requests via the configured proxies. It supports
 // not only HTTP proxy requests, but also normal HTTP/1.1 requests with a
 // Host header - thus enabling the use as a transparent proxy.
-func HTTPProxyHandler() http.Handler {
+func HTTPProxyHandler(dialer *AsyncDialer) http.Handler {
 
 	log.Printf("Forwarding HTTP")
-
-	dialer := &AsyncDialer{}
 
 	transport := http.Transport{
 		MaxIdleConns:        64,
